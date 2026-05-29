@@ -1,0 +1,6 @@
+{
+  "name": "قسط و چک",
+  "description": "نرم افزار یادآوری اقساط و چک‌های ماهانه همراه با نوتیفیکیشن اختصاصی و روزشمار زنده",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

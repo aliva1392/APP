@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Center the financial calendar card in a 66dp visual boundary -->
+    <!-- Base card shape -->
+    <path
+        android:fillColor="#00AFA5"
+        android:pathData="M31,31 C31,27 34,24 38,24 L70,24 C74,24 77,27 77,31 L77,77 C77,81 74,84 70,84 L38,84 C34,84 31,81 31,77 Z" />
+    <!-- Header band of the calendar card -->
+    <path
+        android:fillColor="#004D40"
+        android:pathData="M31,31 C31,27 34,24 38,24 L70,24 C74,24 77,27 77,31 L77,41 L31,41 Z" />
+    <!-- Binder holes for premium visual depth -->
+    <path
+        android:fillColor="#121212"
+        android:pathData="M40,20 C40,18.5 41.5,17 43,17 C44.5,17 46,18.5 46,20 L46,26 C46,27.5 44.5,29 43,29 C41.5,29 40,27.5 40,26 Z M62,20 C62,18.5 63.5,17 65,17 C66.5,17 68,18.5 68,20 L68,26 C68,27.5 66.5,29 65,29 C63.5,29 62,27.5 62,26 Z" />
+    <!-- Mini indicator dots (representing days or items) -->
+    <path
+        android:fillColor="#E0F2F1"
+        android:pathData="M39,47 L45,47 L45,53 L39,53 Z M50,47 L56,47 L56,53 L50,53 Z M61,47 L67,47 L67,53 L61,53 Z M39,58 L45,58 L45,64 L39,64 Z" />
+    <!-- Glowing green checkmark indicating successful cleared reminder -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M52,65 L60,73 L74,53" />
+</vector>
