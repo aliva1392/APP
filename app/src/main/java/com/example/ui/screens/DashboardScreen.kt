@@ -321,6 +321,141 @@ fun DashboardScreen(
                 }
             }
 
+            // Near due items section
+            Text(
+                text = "🔔 سررسیدهای امروز و هفته جاری",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
+            )
+
+            val sevenDaysMillis = 7L * 24 * 60 * 60 * 1000
+            val nearDueItems = mutableListOf<Pair<String, Any>>()
+            pendingInstallments.filter { (it.dueDate - now) <= sevenDaysMillis }.forEach {
+                nearDueItems.add(Pair("قسط", it))
+            }
+            pendingCheques.filter { (it.dueDate - now) <= sevenDaysMillis }.forEach {
+                nearDueItems.add(Pair("چک", it))
+            }
+
+            val sortedNearDues = nearDueItems.sortedBy { pair ->
+                if (pair.second is Installment) (pair.second as Installment).dueDate else (pair.second as Cheque).dueDate
+            }
+
+            if (sortedNearDues.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "هیچ سررسیدی برای امروز یا هفته جاری وجود ندارد. خیالتان آسوده!",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sortedNearDues.forEach { (type, item) ->
+                        val itemTitle: String
+                        val itemAmount: Long
+                        val itemDueDate: Long
+                        val itemStatusColor: Color
+                        val typeLabel: String
+                        
+                        if (item is Installment) {
+                            itemTitle = "قسط: ${item.title}"
+                            itemAmount = item.amount
+                            itemDueDate = item.dueDate
+                            itemStatusColor = Color(0xFF3F51B5)
+                            typeLabel = item.category
+                        } else {
+                            val ch = item as Cheque
+                            itemTitle = "چک: ${ch.bankName} (ش‌چ ${ch.chequeNumber})"
+                            itemAmount = ch.amount
+                            itemDueDate = ch.dueDate
+                            itemStatusColor = if (ch.isMyCheque) Color(0xFFD32F2F) else Color(0xFF2E7D32)
+                            typeLabel = if (ch.isMyCheque) "پرداختی صادره" else "دریافتی وارده"
+                        }
+                        
+                        val diffMillis = itemDueDate - now
+                        val daysRemaining = (diffMillis / (1000 * 60 * 60 * 24)).toInt()
+                        val daysRemainingStr = when {
+                            diffMillis < 0 -> "⚠️ گذشته از سررسید"
+                            daysRemaining == 0 -> "🔴 امروز"
+                            daysRemaining == 1 -> "🟠 فردا"
+                            else -> "🟡 $daysRemaining روز باقی‌مانده"
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(itemStatusColor.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = typeLabel,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = itemStatusColor
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = itemTitle,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "مبلغ: ${FormatUtils.formatAmount(itemAmount)} ریال",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = daysRemainingStr,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (diffMillis < 0) Color(0xFFD32F2F) else if (daysRemaining == 0) Color(0xFFD32F2F) else if (daysRemaining == 1) Color(0xFFFF9800) else Color(0xFF2E7D32)
+                                    )
+                                    Text(
+                                        text = FormatUtils.getJalaliDateString(itemDueDate),
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             // High Fidelity Canvas Chart section
             if (totalDues > 0L) {
                 Card(

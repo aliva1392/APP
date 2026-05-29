@@ -32,6 +32,8 @@ fun SettingsScreen(
     onTogglePinEnabled: (Boolean) -> Unit,
     onExportData: () -> String,
     onImportData: (String) -> Boolean,
+    onExportCsv: () -> String,
+    onExportTextReport: () -> String,
     onTriggerTestNotification: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -118,11 +120,11 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(imageVector = Icons.Default.Share, contentDescription = "پشتیبان‌گیری")
-                    Text(text = "پشتیبان‌گیری و بازیابی داده‌ها (JSON)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(text = "مدیریت، پشتیبان‌گیری و خروجی اکسل و PDF", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
 
                 Text(
-                    text = "می‌توانید اطلاعات کامل چک‌ها و اقساط ثبت‌شده را صادر کرده و کپی نمائید یا یک نسخه کپی را به برنامه بازگردانید.",
+                    text = "می‌توانید اطلاعات کامل چک‌ها و اقساط ثبت‌شده را صادر کرده و کپی نمائید یا یک نسخه کپی را به برنامه بازگردانید. همچنین گزارش اکسل یا PDF قابل چاپ را استخراج کنید.",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -141,7 +143,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("خروجی کپی (Export)", fontSize = 11.sp)
+                        Text("خروجی داده (JSON)", fontSize = 11.sp)
                     }
 
                     Button(
@@ -149,7 +151,40 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text("وارد کردن داده (Import)", fontSize = 11.sp)
+                        Text("بازیابی داده (Import)", fontSize = 11.sp)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val csv = onExportCsv()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Backup_Data_CSV", csv)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "خروجی اکسل (CSV) در حافظه کپی شد! آماده چسباندن در شیت یا ذخیره است.", Toast.LENGTH_LONG).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Text("خروجی Excel", fontSize = 11.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            val report = onExportTextReport()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Backup_Data_Report", report)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "گزارش چاپی آماده در حافظه کپی شد! برای ارسال پیام یا ساخت فایل PDF استفاده کنید.", Toast.LENGTH_LONG).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
+                        Text("گزارش چاپی / PDF", fontSize = 11.sp)
                     }
                 }
             }

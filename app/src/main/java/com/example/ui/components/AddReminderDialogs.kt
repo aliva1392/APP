@@ -30,6 +30,13 @@ fun AddInstallmentDialog(
     var selectedCategory by remember { mutableStateOf("وام") }
     var notes by remember { mutableStateOf("") }
 
+    var showErrors by remember { mutableStateOf(false) }
+    val isTitleValid = title.isNotBlank()
+    val amountLong = amountStr.toLongOrNull()
+    val isAmountValid = amountLong != null && amountLong > 0L
+    val totalInt = totalInstallmentsStr.toIntOrNull()
+    val isTotalValid = totalInt != null && totalInt > 0
+
     val categories = listOf("وام", "خرید اقساطی", "خودرو", "شخصی", "اجاره", "سایر")
 
     AlertDialog(
@@ -56,15 +63,27 @@ fun AddInstallmentDialog(
                     onValueChange = { title = it },
                     label = { Text("عنوان قسط (مثال: قسط وام مسکن)") },
                     singleLine = true,
+                    isError = showErrors && !isTitleValid,
+                    supportingText = {
+                        if (showErrors && !isTitleValid) {
+                            Text("وارد کردن عنوان الزامی است.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("input_title_inst")
                 )
 
                 OutlinedTextField(
                     value = amountStr,
                     onValueChange = { amountStr = it },
-                    label = { Text("قسط ناخالص ماهیانه (به ریال)") },
+                    label = { Text("مبلغ قسط ماهیانه (به ریال)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    isError = showErrors && !isAmountValid,
+                    supportingText = {
+                        if (showErrors && !isAmountValid) {
+                            Text("مبلغ معتبر (بیشتر از صفر ریال) وارد کنید.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("input_amount_inst")
                 )
 
@@ -78,6 +97,12 @@ fun AddInstallmentDialog(
                         label = { Text("تعداد کل اقساط") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        isError = showErrors && !isTotalValid,
+                        supportingText = {
+                            if (showErrors && !isTotalValid) {
+                                Text("تعداد باید بیشتر از صفر باشد.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                            }
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -174,10 +199,10 @@ fun AddInstallmentDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amt = amountStr.toLongOrNull() ?: 0L
-                    val total = totalInstallmentsStr.toIntOrNull() ?: 12
-                    if (title.isNotEmpty() && amt > 0L) {
-                        onConfirm(title, amt, selectedTimestamp, total, selectedCategory, notes)
+                    if (isTitleValid && isAmountValid && isTotalValid) {
+                        onConfirm(title, amountLong!!, selectedTimestamp, totalInt!!, selectedCategory, notes)
+                    } else {
+                        showErrors = true
                     }
                 }
             ) {
@@ -204,6 +229,13 @@ fun AddChequeDialog(
     var isMyCheque by remember { mutableStateOf(true) } // default Issued (صادره)
     var selectedTimestamp by remember { mutableStateOf(System.currentTimeMillis()) } 
     var notes by remember { mutableStateOf("") }
+
+    var showErrors by remember { mutableStateOf(false) }
+    val isBankNameValid = bankName.isNotBlank()
+    val isChequeNumberValid = chequeNumber.isNotBlank()
+    val amountLong = amountStr.toLongOrNull()
+    val isAmountValid = amountLong != null && amountLong > 0L
+    val isPayeeValid = payeeName.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -272,6 +304,12 @@ fun AddChequeDialog(
                     onValueChange = { bankName = it },
                     label = { Text("نام بانک (مثال: بانک ملی)") },
                     singleLine = true,
+                    isError = showErrors && !isBankNameValid,
+                    supportingText = {
+                        if (showErrors && !isBankNameValid) {
+                            Text("وارد کردن نام بانک الزامی است.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("input_bank_ch")
                 )
 
@@ -281,6 +319,12 @@ fun AddChequeDialog(
                     label = { Text("شماره صیادی یا شناسه چک") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    isError = showErrors && !isChequeNumberValid,
+                    supportingText = {
+                        if (showErrors && !isChequeNumberValid) {
+                            Text("وارد کردن شماره صیادی یا شناسه معتبر چک صیادی الزامی است.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("input_number_ch")
                 )
 
@@ -290,6 +334,12 @@ fun AddChequeDialog(
                     label = { Text("مبلغ چک (به ریال)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
+                    isError = showErrors && !isAmountValid,
+                    supportingText = {
+                        if (showErrors && !isAmountValid) {
+                            Text("مبلغ معتبر (بیشتر از صفر ریال) وارد کنید.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().testTag("input_amount_ch")
                 )
 
@@ -298,6 +348,12 @@ fun AddChequeDialog(
                     onValueChange = { payeeName = it },
                     label = { Text(if (isMyCheque) "در وجه یا بابت" else "صادرکننده چک") },
                     singleLine = true,
+                    isError = showErrors && !isPayeeValid,
+                    supportingText = {
+                        if (showErrors && !isPayeeValid) {
+                            Text("وارد کردن صادرکننده/دریافت‌کننده الزامی است.", color = MaterialTheme.colorScheme.error, fontSize = 9.sp)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -327,9 +383,10 @@ fun AddChequeDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amt = amountStr.toLongOrNull() ?: 0L
-                    if (chequeNumber.isNotEmpty() && bankName.isNotEmpty() && amt > 0L) {
-                        onConfirm(chequeNumber, bankName, amt, selectedTimestamp, payeeName, isMyCheque, notes)
+                    if (isBankNameValid && isChequeNumberValid && isAmountValid && isPayeeValid) {
+                        onConfirm(chequeNumber, bankName, amountLong!!, selectedTimestamp, payeeName, isMyCheque, notes)
+                    } else {
+                        showErrors = true
                     }
                 }
             ) {

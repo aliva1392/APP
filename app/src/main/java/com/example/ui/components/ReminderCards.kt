@@ -288,18 +288,22 @@ fun ChequeCard(
     cheque: Cheque,
     now: Long,
     onToggleCleared: () -> Unit,
+    onToggleBounced: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val countdown = FormatUtils.getDaysCountdown(now, cheque.dueDate)
     val remainingDaysStr = countdown.first
     val diffDays = countdown.second
 
+    val cardBg = if (cheque.isBounced) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                 else MaterialTheme.colorScheme.surface
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("cheque_card_${cheque.id}"),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = cardBg
         ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -327,6 +331,26 @@ fun ChequeCard(
                             color = if (cheque.isMyCheque) Color(0xFFD32F2F) else Color(0xFF2E7D32)
                         )
                     }
+
+                    if (cheque.isBounced) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color(0xFFD32F2F),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "⚠️ برگشت خورده",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${cheque.bankName} - ش‌چ (${cheque.chequeNumber.toPersianDigits()})",
@@ -402,6 +426,7 @@ fun ChequeCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val badgeColor = when {
+                    cheque.isBounced -> Color(0xFFD32F2F)
                     diffDays < 0 -> Color(0xFFD32F2F)       // Overdue
                     diffDays <= 2 -> Color(0xFFFF9800)      // Urgent
                     else -> Color(0xFF2E7D32)               // Normal
@@ -413,29 +438,46 @@ fun ChequeCard(
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = remainingDaysStr,
+                        text = if (cheque.isBounced) "برگشت خورده" else remainingDaysStr,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = badgeColor
                     )
                 }
 
-                Button(
-                    onClick = onToggleCleared,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "پاس شد",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "پاس کردن چک", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onToggleCleared,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "پاس شد",
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "وصول/پاس", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    TextButton(
+                        onClick = onToggleBounced,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = if (cheque.isBounced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (cheque.isBounced) "رفع برگشت" else "برگشت خورد",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

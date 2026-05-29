@@ -133,7 +133,7 @@ fun PinScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = FormatUtils.formatInteger(char.toIntOrNull() ?: -1).ifEmpty { char },
+                                    text = if (char == "پاک کردن") char else FormatUtils.formatInteger(char.toIntOrNull() ?: 0),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (char == "پاک کردن") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface

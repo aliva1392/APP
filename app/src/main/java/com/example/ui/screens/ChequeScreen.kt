@@ -27,6 +27,7 @@ fun ChequeScreen(
     cheques: List<Cheque>,
     now: Long,
     onToggleCleared: (Cheque) -> Unit,
+    onToggleBounced: (Cheque) -> Unit,
     onDeleteClick: (Cheque) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -194,6 +195,7 @@ fun ChequeScreen(
                         cheque = ch,
                         now = now,
                         onToggleCleared = { onToggleCleared(ch) },
+                        onToggleBounced = { onToggleBounced(ch) },
                         onDeleteClick = { onDeleteClick(ch) }
                     )
                 }

@@ -20,7 +20,8 @@ data class Installment(
     val paidInstallments: Int, // Paid installments count
     val category: String,      // Category (e.g. وام, خرید, قسط)
     val notes: String = "",
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val imageUri: String? = null
 ) {
     val remainingInstallments: Int
         get() = (totalInstallments - paidInstallments).coerceAtLeast(0)
@@ -42,5 +43,7 @@ data class Cheque(
     val payeeName: String,     // در وجه
     val isMyCheque: Boolean,   // Is issued by me (صادره) or received by me (وارده)
     val isCleared: Boolean = false, // پاس شده
-    val notes: String = ""
+    val notes: String = "",
+    val isBounced: Boolean = false, // برگشتی
+    val imageUri: String? = null
 )

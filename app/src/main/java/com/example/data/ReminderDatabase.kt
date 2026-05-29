@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Installment::class, Cheque::class], version = 2, exportSchema = false)
+@Database(entities = [Installment::class, Cheque::class], version = 3, exportSchema = false)
 abstract class ReminderDatabase : RoomDatabase() {
     abstract val installmentDao: InstallmentDao
     abstract val chequeDao: ChequeDao
@@ -26,6 +26,14 @@ abstract class ReminderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE installments ADD COLUMN imageUri TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE cheques ADD COLUMN isBounced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE cheques ADD COLUMN imageUri TEXT DEFAULT NULL")
+            }
+        }
+
         fun getDatabase(context: Context): ReminderDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -33,8 +41,8 @@ abstract class ReminderDatabase : RoomDatabase() {
                     ReminderDatabase::class.java,
                     "reminder_database"
                 )
-                .addMigrations(MIGRATION_1_2)
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance

@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -75,21 +76,16 @@ class MainActivity : ComponentActivity() {
                 var pinEnteredSuccessfully by remember { mutableStateOf(false) }
                 val requirePin = viewModel.isPinEnabled && viewModel.securityPin.isNotEmpty()
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize()
-                ) { innerPadding ->
-                    if (requirePin && !pinEnteredSuccessfully) {
-                        PinScreen(
-                            correctPin = viewModel.securityPin,
-                            onPinCorrect = { pinEnteredSuccessfully = true },
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    } else {
-                        AppNavigation(
-                            viewModel = viewModel,
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                if (requirePin && !pinEnteredSuccessfully) {
+                    PinScreen(
+                        correctPin = viewModel.securityPin,
+                        onPinCorrect = { pinEnteredSuccessfully = true },
+                        modifier = Modifier.safeDrawingPadding()
+                    )
+                } else {
+                    AppNavigation(
+                        viewModel = viewModel
+                    )
                 }
             }
         }

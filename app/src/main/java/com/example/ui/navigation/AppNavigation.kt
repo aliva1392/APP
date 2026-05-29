@@ -126,6 +126,7 @@ fun AppNavigation(
                             cheques = cheques,
                             now = now,
                             onToggleCleared = { viewModel.toggleChequeCleared(it) },
+                            onToggleBounced = { viewModel.toggleChequeBounced(it) },
                             onDeleteClick = { viewModel.deleteCheque(it) }
                         )
                     }
@@ -137,6 +138,8 @@ fun AppNavigation(
                             onTogglePinEnabled = { viewModel.isPinEnabled = it },
                             onExportData = { viewModel.exportDataToJson() },
                             onImportData = { viewModel.importDataFromJson(it) },
+                            onExportCsv = { viewModel.exportDataToCsv() },
+                            onExportTextReport = { viewModel.exportDataToTextReport() },
                             onTriggerTestNotification = { viewModel.triggerTestNotification() }
                         )
                     }

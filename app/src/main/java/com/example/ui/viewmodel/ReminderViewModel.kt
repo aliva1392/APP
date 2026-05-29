@@ -216,7 +216,8 @@ class ReminderViewModel(
         dueDate: Long,
         totalInstallments: Int,
         category: String,
-        notes: String
+        notes: String,
+        imageUri: String? = null
     ) {
         viewModelScope.launch {
             val inst = Installment(
@@ -227,7 +228,8 @@ class ReminderViewModel(
                 paidInstallments = 0,
                 category = category,
                 notes = notes,
-                isCompleted = false
+                isCompleted = false,
+                imageUri = imageUri
             )
             repository.insertInstallment(inst)
             
@@ -274,7 +276,8 @@ class ReminderViewModel(
         dueDate: Long,
         payeeName: String,
         isMyCheque: Boolean,
-        notes: String
+        notes: String,
+        imageUri: String? = null
     ) {
         viewModelScope.launch {
             val ch = Cheque(
@@ -285,7 +288,9 @@ class ReminderViewModel(
                 payeeName = payeeName,
                 isMyCheque = isMyCheque,
                 isCleared = false,
-                notes = notes
+                notes = notes,
+                isBounced = false,
+                imageUri = imageUri
             )
             repository.insertCheque(ch)
 
@@ -294,7 +299,7 @@ class ReminderViewModel(
             val typeDesc = if (isMyCheque) "پرداختی شما" else "وارده دریافتی شما"
             scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۷ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 7 * dayMillis)
             scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۳ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 3 * dayMillis)
-            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "فردا موعد پاس کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
+            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "فردا موعد पास کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
             scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "امروز موعد سررسید نهایی چک فرا رسیده است.", ch.dueDate)
         }
     }
@@ -306,9 +311,119 @@ class ReminderViewModel(
         }
     }
 
+    fun toggleChequeBounced(cheque: Cheque) {
+        viewModelScope.launch {
+            val updated = cheque.copy(isBounced = !cheque.isBounced)
+            repository.insertCheque(updated)
+        }
+    }
+
     fun deleteCheque(cheque: Cheque) {
         viewModelScope.launch {
             repository.deleteCheque(cheque)
+        }
+    }
+
+    // Excel-compatible CSV export using UTF-8 BOM so Excel displays Persian correctly!
+    fun exportDataToCsv(): String {
+        return try {
+            val s = StringBuilder()
+            // Add UTF-8 BOM so Persian/Arabic letters are rendered correctly by Excel
+            s.append('\ufeff')
+            // CSV Headers
+            s.append("نوع تعهد,عنوان,مبلغ (ریال),تاریخ سررسید,وضعیت,اطلاعات تکمیلی,پیوست\n")
+            
+            // Installments
+            installments.value.forEach { inst ->
+                val statusStr = if (inst.isCompleted) "تسویه شده" else "جاری (${inst.paidInstallments} از ${inst.totalInstallments})"
+                val dateStr = com.example.util.FormatUtils.getJalaliDateString(inst.dueDate)
+                s.append("قسط,${inst.title},${inst.amount},$dateStr,$statusStr,${inst.notes.replace(",", "-")},${inst.imageUri ?: "بدون فایل"}\n")
+            }
+            
+            // Cheques
+            cheques.value.forEach { ch ->
+                val typeDesc = if (ch.isMyCheque) "چک صادره" else "چک وارده"
+                val statusStr = when {
+                    ch.isCleared -> "پاس شده"
+                    ch.isBounced -> "برگشتی"
+                    else -> "در انتظار"
+                }
+                val dateStr = com.example.util.FormatUtils.getJalaliDateString(ch.dueDate)
+                s.append("$typeDesc,شماره ${ch.chequeNumber} (${ch.bankName}),${ch.amount},$dateStr,$statusStr,گیرنده/صادرکننده: ${ch.payeeName.replace(",", "-")} • ${ch.notes.replace(",", "-")},${ch.imageUri ?: "بدون تصویر"}\n")
+            }
+            
+            s.toString()
+        } catch (e: Exception) {
+            Log.e("ReminderViewModel", "Failed to export CSV", e)
+            ""
+        }
+    }
+
+    // Dynamic clean structured TEXT Report perfect for PDF / Easy Print
+    fun exportDataToTextReport(): String {
+        return try {
+            val s = StringBuilder()
+            s.append("=========================\n")
+            s.append("    گزارش تراز سررسید مالی - هوشمند\n")
+            s.append("    تاریخ گزارش: ${com.example.util.FormatUtils.getCurrentJalaliDateWithDayOfWeek()}\n")
+            s.append("=========================\n\n")
+            
+            s.append("📌 بخش اول: اقساط ماهیانه\n")
+            s.append("-------------------------\n")
+            if (installments.value.isEmpty()) {
+                s.append("هیچ قسطی ثبت نشده است.\n")
+            } else {
+                installments.value.forEachIndexed { i, inst ->
+                    val statusStr = if (inst.isCompleted) "تسویه شده" else "جاری (قسط شماره ${inst.paidInstallments + 1} از ${inst.totalInstallments})"
+                    val dateStr = com.example.util.FormatUtils.getJalaliDateString(inst.dueDate)
+                    s.append("${i+1}. عنوان: ${inst.title}\n")
+                    s.append("    دسته‌بندی: ${inst.category}\n")
+                    s.append("    تاریخ سررسید بعدی: $dateStr\n")
+                    s.append("    مبلغ ماهیانه: ${formatAmountLong(inst.amount)} ریال\n")
+                    s.append("    وضعیت قسط: $statusStr\n")
+                    if (inst.notes.isNotEmpty()) s.append("    یادداشت: ${inst.notes}\n")
+                    s.append("\n")
+                }
+            }
+            
+            s.append("📌 بخش دوم: چک‌های بانکی صیادی\n")
+            s.append("-------------------------\n")
+            if (cheques.value.isEmpty()) {
+                s.append("هیچ چکی ثبت نشده است.\n")
+            } else {
+                cheques.value.forEachIndexed { i, ch ->
+                    val typeDesc = if (ch.isMyCheque) "چک صادر شده (طلبکاران)" else "چک دریافت شده (بدهکاران)"
+                    val statusStr = when {
+                        ch.isCleared -> "پاس شده"
+                        ch.isBounced -> "برگشتی و عودت داده شده"
+                        else -> "در انتظار وصول"
+                    }
+                    val dateStr = com.example.util.FormatUtils.getJalaliDateString(ch.dueDate)
+                    s.append("${i+1}. شماره چک صیاد: ${ch.chequeNumber}\n")
+                    s.append("    نام بانک عامل: ${ch.bankName}\n")
+                    s.append("    مبلغ چک: ${formatAmountLong(ch.amount)} ریال\n")
+                    s.append("    سررسید: $dateStr\n")
+                    s.append("    جهت / بابت: ${ch.payeeName}\n")
+                    s.append("    نوع چک: $typeDesc\n")
+                    s.append("    وضعیت چک: $statusStr\n")
+                    if (ch.notes.isNotEmpty()) s.append("    یادداشت کاربر: ${ch.notes}\n")
+                    s.append("\n")
+                }
+            }
+            
+            s.append("-------------------------\n")
+            val pendingInst = installments.value.filter { !it.isCompleted }.sumOf { it.amount }
+            val pendingCh = cheques.value.filter { !it.isCleared }.sumOf { it.amount }
+            s.append("📊 خلاصه بدهی‌های تعهداتی در جریان:\n")
+            s.append("مجموع اقساط باقی‌مانده: ${formatAmountLong(pendingInst)} ریال\n")
+            s.append("مجموع چک‌های وصول‌تعلیق: ${formatAmountLong(pendingCh)} ریال\n")
+            s.append("کل تعهدات در جریان: ${formatAmountLong(pendingInst + pendingCh)} ریال\n")
+            s.append("=========================\n")
+            
+            s.toString()
+        } catch (e: Exception) {
+            Log.e("ReminderViewModel", "Failed to generate text report", e)
+            ""
         }
     }
 
@@ -330,10 +445,47 @@ class ReminderViewModel(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+            val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmManager.canScheduleExactAlarms()
             } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                true
+            }
+
+            if (canScheduleExact) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                }
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e("ReminderViewModel", "SecurityException scheduling exact alarm", e)
+            try {
+                val context = getApplication<Application>()
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NotificationReceiver::class.java).apply {
+                    putExtra("title", title)
+                    putExtra("message", message)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    triggerAtMillis.toInt(),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                }
+            } catch (ex: Exception) {
+                Log.e("ReminderViewModel", "Failed secondary alarm schedule fallback", ex)
             }
         } catch (e: Exception) {
             Log.e("ReminderViewModel", "Failed to schedule alarm", e)
