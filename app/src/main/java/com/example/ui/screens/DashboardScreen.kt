@@ -46,6 +46,14 @@ fun DashboardScreen(
     val now = System.currentTimeMillis()
     val scrollState = rememberScrollState()
 
+    var jalaliDateText by remember { mutableStateOf(FormatUtils.getCurrentJalaliDateWithDayOfWeek()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            jalaliDateText = FormatUtils.getCurrentJalaliDateWithDayOfWeek()
+            kotlinx.coroutines.delay(60000) // refresh every 60 seconds
+        }
+    }
+
     // Financial calculations
     val pendingInstallments = installments.filter { !it.isCompleted }
     val totalPendingInstAmount = pendingInstallments.sumOf { it.amount }
@@ -100,7 +108,7 @@ fun DashboardScreen(
                     )
                 )
                 Text(
-                    text = FormatUtils.getCurrentJalaliDateWithDayOfWeek(),
+                    text = jalaliDateText,
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

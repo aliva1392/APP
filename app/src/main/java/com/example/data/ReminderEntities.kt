@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "installments",
     indices = [
         Index(value = ["dueDate"]),
-        Index(value = ["isCompleted"])
+        Index(value = ["isCompleted"]),
+        Index(value = ["amount"])
     ]
 )
 data class Installment(
@@ -31,7 +32,10 @@ data class Installment(
     tableName = "cheques",
     indices = [
         Index(value = ["dueDate"]),
-        Index(value = ["isCleared"])
+        Index(value = ["isCleared"]),
+        Index(value = ["chequeNumber"]),
+        Index(value = ["payeeName"]),
+        Index(value = ["amount"])
     ]
 )
 data class Cheque(

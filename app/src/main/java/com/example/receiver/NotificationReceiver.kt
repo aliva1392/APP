@@ -1,5 +1,6 @@
 package com.example.receiver
 
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -7,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 
@@ -102,6 +104,65 @@ class NotificationReceiver : BroadcastReceiver() {
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(ONGOING_NOTIF_ID)
+        }
+
+        fun scheduleNotificationAlarm(context: Context, title: String, message: String, triggerAtMillis: Long) {
+            if (triggerAtMillis < System.currentTimeMillis()) return
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NotificationReceiver::class.java).apply {
+                    putExtra("title", title)
+                    putExtra("message", message)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    triggerAtMillis.toInt(), // unique request code
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alarmManager.canScheduleExactAlarms()
+                } else {
+                    true
+                }
+                if (canScheduleExact) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                } else {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                }
+            } catch (e: SecurityException) {
+                Log.e("NotificationReceiver", "SecurityException scheduling exact alarm", e)
+                try {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    val intent = Intent(context, NotificationReceiver::class.java).apply {
+                        putExtra("title", title)
+                        putExtra("message", message)
+                    }
+                    val pendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        triggerAtMillis.toInt(),
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                } catch (ex: Exception) {
+                    Log.e("NotificationReceiver", "Failed secondary alarm schedule fallback", ex)
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationReceiver", "Failed to schedule alarm", e)
+            }
         }
 
         fun showNotification(context: Context, title: String, message: String) {

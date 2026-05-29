@@ -19,3 +19,20 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Production Proguard Rules for Room & Moshi ---
+
+# Keep Room generated-code and entities
+-keep class * extends androidx.room.RoomDatabase
+-keep class com.example.data.** { *; }
+-dontwarn androidx.room.paging.**
+
+# Keep Moshi models, adapters, and reflections
+-keep class com.squareup.moshi.** { *; }
+-keep interface com.squareup.moshi.** { *; }
+-dontwarn com.squareup.moshi.**
+-keep @com.squareup.moshi.JsonClass class * { *; }
+-keep class *JsonAdapter { *; }
+
+# Keeping attributes for reflection/annotations
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,LineNumberTable,SourceFile

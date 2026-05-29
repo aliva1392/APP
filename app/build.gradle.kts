@@ -39,9 +39,15 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      if (file(keystorePath).exists() && System.getenv("STORE_PASSWORD") != null) {
+          signingConfig = signingConfigs.getByName("release")
+      } else {
+          signingConfig = signingConfigs.getByName("debugConfig")
+      }
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")
@@ -56,6 +62,10 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+}
+
+ksp {
+  arg("room.schemaLocation", "${projectDir}/schemas")
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files

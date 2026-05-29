@@ -74,11 +74,11 @@ class ReminderViewModel(
     }
 
     // JSON export implementation using standard Moshi reflection adapters
-    fun exportDataToJson(): String {
+    fun exportDataToJson(customInst: List<Installment>? = null, customCheques: List<Cheque>? = null): String {
         return try {
             val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
             val adapter = moshi.adapter(BackupData::class.java)
-            val backup = BackupData(installments.value, cheques.value)
+            val backup = BackupData(customInst ?: installments.value, customCheques ?: cheques.value)
             adapter.toJson(backup)
         } catch (e: Exception) {
             Log.e("ReminderViewModel", "Failed to export JSON backup", e)
@@ -325,7 +325,7 @@ class ReminderViewModel(
     }
 
     // Excel-compatible CSV export using UTF-8 BOM so Excel displays Persian correctly!
-    fun exportDataToCsv(): String {
+    fun exportDataToCsv(customInst: List<Installment>? = null, customCheques: List<Cheque>? = null): String {
         return try {
             val s = StringBuilder()
             // Add UTF-8 BOM so Persian/Arabic letters are rendered correctly by Excel
@@ -333,15 +333,18 @@ class ReminderViewModel(
             // CSV Headers
             s.append("نوع تعهد,عنوان,مبلغ (ریال),تاریخ سررسید,وضعیت,اطلاعات تکمیلی,پیوست\n")
             
+            val insts = customInst ?: installments.value
+            val chs = customCheques ?: cheques.value
+
             // Installments
-            installments.value.forEach { inst ->
+            insts.forEach { inst ->
                 val statusStr = if (inst.isCompleted) "تسویه شده" else "جاری (${inst.paidInstallments} از ${inst.totalInstallments})"
                 val dateStr = com.example.util.FormatUtils.getJalaliDateString(inst.dueDate)
                 s.append("قسط,${inst.title},${inst.amount},$dateStr,$statusStr,${inst.notes.replace(",", "-")},${inst.imageUri ?: "بدون فایل"}\n")
             }
             
             // Cheques
-            cheques.value.forEach { ch ->
+            chs.forEach { ch ->
                 val typeDesc = if (ch.isMyCheque) "چک صادره" else "چک وارده"
                 val statusStr = when {
                     ch.isCleared -> "پاس شده"
@@ -360,7 +363,7 @@ class ReminderViewModel(
     }
 
     // Dynamic clean structured TEXT Report perfect for PDF / Easy Print
-    fun exportDataToTextReport(): String {
+    fun exportDataToTextReport(customInst: List<Installment>? = null, customCheques: List<Cheque>? = null): String {
         return try {
             val s = StringBuilder()
             s.append("=========================\n")
@@ -368,12 +371,15 @@ class ReminderViewModel(
             s.append("    تاریخ گزارش: ${com.example.util.FormatUtils.getCurrentJalaliDateWithDayOfWeek()}\n")
             s.append("=========================\n\n")
             
+            val insts = customInst ?: installments.value
+            val chs = customCheques ?: cheques.value
+
             s.append("📌 بخش اول: اقساط ماهیانه\n")
             s.append("-------------------------\n")
-            if (installments.value.isEmpty()) {
+            if (insts.isEmpty()) {
                 s.append("هیچ قسطی ثبت نشده است.\n")
             } else {
-                installments.value.forEachIndexed { i, inst ->
+                insts.forEachIndexed { i, inst ->
                     val statusStr = if (inst.isCompleted) "تسویه شده" else "جاری (قسط شماره ${inst.paidInstallments + 1} از ${inst.totalInstallments})"
                     val dateStr = com.example.util.FormatUtils.getJalaliDateString(inst.dueDate)
                     s.append("${i+1}. عنوان: ${inst.title}\n")
@@ -388,10 +394,10 @@ class ReminderViewModel(
             
             s.append("📌 بخش دوم: چک‌های بانکی صیادی\n")
             s.append("-------------------------\n")
-            if (cheques.value.isEmpty()) {
+            if (chs.isEmpty()) {
                 s.append("هیچ چکی ثبت نشده است.\n")
             } else {
-                cheques.value.forEachIndexed { i, ch ->
+                chs.forEachIndexed { i, ch ->
                     val typeDesc = if (ch.isMyCheque) "چک صادر شده (طلبکاران)" else "چک دریافت شده (بدهکاران)"
                     val statusStr = when {
                         ch.isCleared -> "پاس شده"
@@ -412,8 +418,8 @@ class ReminderViewModel(
             }
             
             s.append("-------------------------\n")
-            val pendingInst = installments.value.filter { !it.isCompleted }.sumOf { it.amount }
-            val pendingCh = cheques.value.filter { !it.isCleared }.sumOf { it.amount }
+            val pendingInst = insts.filter { !it.isCompleted }.sumOf { it.amount }
+            val pendingCh = chs.filter { !it.isCleared }.sumOf { it.amount }
             s.append("📊 خلاصه بدهی‌های تعهداتی در جریان:\n")
             s.append("مجموع اقساط باقی‌مانده: ${formatAmountLong(pendingInst)} ریال\n")
             s.append("مجموع چک‌های وصول‌تعلیق: ${formatAmountLong(pendingCh)} ریال\n")
@@ -428,68 +434,7 @@ class ReminderViewModel(
     }
 
     private fun scheduleNotificationAlarm(title: String, message: String, triggerAtMillis: Long) {
-        if (triggerAtMillis < System.currentTimeMillis()) return
-        
-        try {
-            val context = getApplication<Application>()
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, NotificationReceiver::class.java).apply {
-                putExtra("title", title)
-                putExtra("message", message)
-            }
-            
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                triggerAtMillis.toInt(), // unique request code
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                alarmManager.canScheduleExactAlarms()
-            } else {
-                true
-            }
-
-            if (canScheduleExact) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                }
-            } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                } else {
-                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                }
-            }
-        } catch (e: SecurityException) {
-            Log.e("ReminderViewModel", "SecurityException scheduling exact alarm", e)
-            try {
-                val context = getApplication<Application>()
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                val intent = Intent(context, NotificationReceiver::class.java).apply {
-                    putExtra("title", title)
-                    putExtra("message", message)
-                }
-                val pendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    triggerAtMillis.toInt(),
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                } else {
-                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                }
-            } catch (ex: Exception) {
-                Log.e("ReminderViewModel", "Failed secondary alarm schedule fallback", ex)
-            }
-        } catch (e: Exception) {
-            Log.e("ReminderViewModel", "Failed to schedule alarm", e)
-        }
+        NotificationReceiver.scheduleNotificationAlarm(getApplication(), title, message, triggerAtMillis)
     }
 
     private fun formatAmountLong(value: Long): String {

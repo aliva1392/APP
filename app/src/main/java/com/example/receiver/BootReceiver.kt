@@ -22,6 +22,25 @@ class BootReceiver : BroadcastReceiver() {
                     val cheques = repo.allCheques.first()
                     
                     val now = System.currentTimeMillis()
+                    
+                    // Reschedule alarms for all uncompleted installments
+                    val dayMillis = 24L * 60 * 60 * 1000
+                    installments.filter { !it.isCompleted }.forEach { inst ->
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید قسط: ${inst.title}", "۷ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 7 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید قسط: ${inst.title}", "۳ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 3 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید قسط: ${inst.title}", "فردا سررسید قسط ${inst.title} است!", inst.dueDate - 1 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید قسط: ${inst.title}", "امروز موعد پرداخت قسط ${inst.title} فرا رسیده است.", inst.dueDate)
+                    }
+
+                    // Reschedule alarms for all uncleared cheques
+                    cheques.filter { !it.isCleared }.forEach { ch ->
+                        val typeDesc = if (ch.isMyCheque) "پرداختی شما" else "دریافتی شما"
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید چک شماره ${ch.chequeNumber}", "۷ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 7 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید چک شماره ${ch.chequeNumber}", "۳ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 3 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید چک شماره ${ch.chequeNumber}", "فردا موعد پاس کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
+                        NotificationReceiver.scheduleNotificationAlarm(context, "سررسید چک شماره ${ch.chequeNumber}", "امروز موعد سررسید نهایی چک فرا رسیده است.", ch.dueDate)
+                    }
+
                     val nextInstallment = installments.filter { !it.isCompleted }.minByOrNull { it.dueDate }
                     val nextCheque = cheques.filter { !it.isCleared }.minByOrNull { it.dueDate }
                     
