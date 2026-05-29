@@ -1,9 +1,16 @@
 package com.example.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "installments")
+@Entity(
+    tableName = "installments",
+    indices = [
+        Index(value = ["dueDate"]),
+        Index(value = ["isCompleted"])
+    ]
+)
 data class Installment(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
@@ -19,7 +26,13 @@ data class Installment(
         get() = (totalInstallments - paidInstallments).coerceAtLeast(0)
 }
 
-@Entity(tableName = "cheques")
+@Entity(
+    tableName = "cheques",
+    indices = [
+        Index(value = ["dueDate"]),
+        Index(value = ["isCleared"])
+    ]
+)
 data class Cheque(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val chequeNumber: String,  // شماره چک

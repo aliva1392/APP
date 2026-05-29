@@ -9,7 +9,7 @@ object FormatUtils {
      * Converts a millisecond timestamp to a Shamsi/Jalali date string, e.g. "۱۴۰۵/۰۳/۰۹"
      */
     fun getJalaliDateString(timestamp: Long): String {
-        val calendar = Calendar.getInstance()
+        val calendar = java.util.GregorianCalendar()
         calendar.timeInMillis = timestamp
         val gy = calendar.get(Calendar.YEAR)
         val gm = calendar.get(Calendar.MONTH) + 1
@@ -20,6 +20,29 @@ object FormatUtils {
         val dayStr = if (jd < 10) "۰$jd" else "$jd"
 
         return "$jy/$monthStr/$dayStr".toPersianDigits()
+    }
+
+    /**
+     * Get dynamic Persian Date string with day of week (e.g., "جمعه، ۹ خرداد ۱۴۰۵")
+     */
+    fun getCurrentJalaliDateWithDayOfWeek(): String {
+        val calendar = java.util.GregorianCalendar()
+        val gDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val dayNames = arrayOf("", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه")
+        val dayName = dayNames.getOrElse(gDayOfWeek) { "" }
+        
+        val gy = calendar.get(Calendar.YEAR)
+        val gm = calendar.get(Calendar.MONTH) + 1
+        val gd = calendar.get(Calendar.DAY_OF_MONTH)
+        
+        val (jy, jm, jd) = gregorianToJalali(gy, gm, gd)
+        val monthNames = listOf(
+            "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+            "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+        )
+        val monthName = monthNames.getOrElse((jm - 1).coerceIn(0, 11)) { "خرداد" }
+        
+        return "$dayName، ${formatInteger(jd)} $monthName ${formatInteger(jy)}"
     }
 
     /**
@@ -131,7 +154,7 @@ object FormatUtils {
      * Extracts Shamsi year, month, and day as a Triple(jy, jm, jd) from a timestamp.
      */
     fun getJalaliDateParts(timestamp: Long): Triple<Int, Int, Int> {
-        val calendar = Calendar.getInstance()
+        val calendar = java.util.GregorianCalendar()
         calendar.timeInMillis = timestamp
         val gy = calendar.get(Calendar.YEAR)
         val gm = calendar.get(Calendar.MONTH) + 1
@@ -204,7 +227,7 @@ object FormatUtils {
      */
     fun jalaliToTimestamp(jy: Int, jm: Int, jd: Int): Long {
         val (gy, gm, gd) = jalaliToGregorian(jy, jm, jd)
-        val calendar = Calendar.getInstance()
+        val calendar = java.util.GregorianCalendar()
         calendar.set(Calendar.YEAR, gy)
         calendar.set(Calendar.MONTH, gm - 1)
         calendar.set(Calendar.DAY_OF_MONTH, gd)

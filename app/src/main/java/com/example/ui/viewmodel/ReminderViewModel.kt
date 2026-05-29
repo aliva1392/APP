@@ -12,6 +12,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.example.receiver.NotificationReceiver
 import com.example.util.FormatUtils.toPersianDigits
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,10 +24,26 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class BackupData(
+    val installments: List<Installment>,
+    val cheques: List<Cheque>
+)
+
 class ReminderViewModel(
     application: Application,
     private val repository: ReminderRepository
 ) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("app_settings_rem", Context.MODE_PRIVATE)
+
+    var securityPin: String
+        get() = prefs.getString("security_pin", "") ?: ""
+        set(value) = prefs.edit().putString("security_pin", value).apply()
+
+    var isPinEnabled: Boolean
+        get() = prefs.getBoolean("pin_enabled", false)
+        set(value) = prefs.edit().putBoolean("pin_enabled", value).apply()
 
     val installments: StateFlow<List<Installment>> = repository.allInstallments
         .stateIn(
@@ -51,6 +70,41 @@ class ReminderViewModel(
             }.collect { (insts, chs) ->
                 updateOngoingReminderNotification(insts, chs)
             }
+        }
+    }
+
+    // JSON export implementation using standard Moshi reflection adapters
+    fun exportDataToJson(): String {
+        return try {
+            val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter(BackupData::class.java)
+            val backup = BackupData(installments.value, cheques.value)
+            adapter.toJson(backup)
+        } catch (e: Exception) {
+            Log.e("ReminderViewModel", "Failed to export JSON backup", e)
+            ""
+        }
+    }
+
+    // JSON restore database configuration helper
+    fun importDataFromJson(jsonStr: String): Boolean {
+        return try {
+            val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+            val adapter = moshi.adapter(BackupData::class.java)
+            val backup = adapter.fromJson(jsonStr) ?: return false
+            
+            viewModelScope.launch {
+                backup.installments.forEach {
+                    repository.insertInstallment(it.copy(id = 0))
+                }
+                backup.cheques.forEach {
+                    repository.insertCheque(it.copy(id = 0))
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("ReminderViewModel", "Failed to import JSON backup", e)
+            false
         }
     }
 
@@ -176,8 +230,13 @@ class ReminderViewModel(
                 isCompleted = false
             )
             repository.insertInstallment(inst)
-            // Register an operating background calendar alarm check for standard alarmManager warnings too
-            scheduleNotificationAlarm(inst.title, "یک قسط در پیش رو دارید", inst.dueDate - 24 * 60 * 60 * 1000)
+            
+            // Multi-level alarming scheduled notifications: 7 days, 3 days, 1 day, and on due date
+            val dayMillis = 24L * 60 * 60 * 1000
+            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "۷ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 7 * dayMillis)
+            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "۳ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 3 * dayMillis)
+            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "فردا سررسید قسط ${inst.title} است!", inst.dueDate - 1 * dayMillis)
+            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "امروز موعد پرداخت قسط ${inst.title} فرا رسیده است.", inst.dueDate)
         }
     }
 
@@ -187,7 +246,7 @@ class ReminderViewModel(
             val completed = newPaid >= installment.totalInstallments
             
             // Increment due date by 30 days
-            val cal = Calendar.getInstance().apply {
+            val cal = java.util.GregorianCalendar().apply {
                 timeInMillis = installment.dueDate
                 add(Calendar.DAY_OF_MONTH, 30)
             }
@@ -229,10 +288,14 @@ class ReminderViewModel(
                 notes = notes
             )
             repository.insertCheque(ch)
-            // Schedule alert 1 day in advance
-            val alarmTime = ch.dueDate - 24 * 60 * 60 * 1000
-            val typeDesc = if (isMyCheque) "پرداخت" else "پاس‌کردن"
-            scheduleNotificationAlarm("سررسید چک بانکی", "چک شماره $chequeNumber فردا برای $typeDesc است", alarmTime)
+
+            // Multi-level alarming scheduled notifications: 7 days, 3 days, 1 day, and on due date
+            val dayMillis = 24L * 60 * 60 * 1000
+            val typeDesc = if (isMyCheque) "پرداختی شما" else "وارده دریافتی شما"
+            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۷ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 7 * dayMillis)
+            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۳ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 3 * dayMillis)
+            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "فردا موعد پاس کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
+            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "امروز موعد سررسید نهایی چک فرا رسیده است.", ch.dueDate)
         }
     }
 
