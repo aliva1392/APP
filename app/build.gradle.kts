@@ -1,5 +1,6 @@
 plugins {
   alias(libs.plugins.android.application)
+  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.google.services)
@@ -7,7 +8,7 @@ plugins {
 }
 
 android {
-  namespace = "com.aliva.reminder"
+  namespace = "com.example"
   compileSdk = 35
 
   defaultConfig {
@@ -26,13 +27,21 @@ android {
       val sPassword = System.getenv("STORE_PASSWORD")
       val kPassword = System.getenv("KEY_PASSWORD")
       
-      if (sPassword == null || kPassword == null) {
-          // We don't fail immediately because gradle configures all variants initially.
-          // But we print a warning, and if release is actually assembled, it will fail naturally or we can throw.
-          println("WARNING: STORE_PASSWORD or KEY_PASSWORD is not set. Release builds will fail.")
+      val keystoreFile = file(keystorePath)
+      
+      // We only throw if we are actually building a release variant to not break debug builds
+      gradle.taskGraph.whenReady {
+        if (hasTask(":app:assembleRelease") || hasTask(":app:bundleRelease")) {
+            if (!keystoreFile.exists()) {
+                throw GradleException("Release keystore not found at $keystorePath. Release builds require a valid keystore.")
+            }
+            if (sPassword == null || kPassword == null) {
+                throw GradleException("STORE_PASSWORD or KEY_PASSWORD is not set. Release builds require these environment variables.")
+            }
+        }
       }
       
-      storeFile = file(keystorePath)
+      storeFile = keystoreFile
       storePassword = sPassword ?: "dummy"
       keyAlias = "upload"
       keyPassword = kPassword ?: "dummy"
@@ -60,6 +69,9 @@ android {
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
+  }
+  kotlinOptions {
+    jvmTarget = "11"
   }
   buildFeatures {
     compose = true

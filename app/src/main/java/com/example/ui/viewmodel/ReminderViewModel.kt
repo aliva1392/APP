@@ -166,7 +166,7 @@ class ReminderViewModel(
                     if (diff in 0..twoDaysInput) {
                         val days = (diff / (1000 * 60 * 60 * 24)).toInt()
                         val desc = if (days == 0) "امروز" else if (days == 1) "فردا" else "$days روز دیگر"
-                        triggerNotification(
+                        NotificationReceiver.showNotification(getApplication(),
                             "سررسید قسط نزدیک است!",
                             "قسط ${inst.title} به مبلغ ${formatAmountLong(inst.amount)} ریال $desc سررسید می‌شود."
                         )
@@ -181,7 +181,7 @@ class ReminderViewModel(
                         val days = (diff / (1000 * 60 * 60 * 24)).toInt()
                         val desc = if (days == 0) "امروز" else if (days == 1) "فردا" else "$days روز دیگر"
                         val chequeType = if (ch.isMyCheque) "پرداختی شما" else "دریافتی شما"
-                        triggerNotification(
+                        NotificationReceiver.showNotification(getApplication(),
                             "سررسید چک نزدیک است!",
                             "چک شماره ${ch.chequeNumber} (${ch.bankName}) به مبلغ ${formatAmountLong(ch.amount)} ریال مربوط به $chequeType $desc سررسید می‌شود."
                         )
@@ -195,7 +195,7 @@ class ReminderViewModel(
      * Manually triggers a mock instant notification for testing.
      */
     fun triggerTestNotification() {
-        triggerNotification(
+        NotificationReceiver.showNotification(getApplication(),
             "تست موفقیت‌آمیز سیستم نوتیفیکیشن",
             "سیستم یادآور اقساط و چک فعال است و در موعد مقرر به شما هشدار خواهد داد."
         )
