@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:1234567890:android:abc123def456",
         "android_client_info": {
-          "package_name": "com.aistudio.reminder.bglqpw"
+          "package_name": "com.aliva.reminder"
         }
       },
       "oauth_client": [],
