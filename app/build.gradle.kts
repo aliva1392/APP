@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.aliva.reminder"
   compileSdk = 35
 
   defaultConfig {

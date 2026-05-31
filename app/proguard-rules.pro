@@ -24,7 +24,7 @@
 
 # Keep Room generated-code and entities
 -keep class * extends androidx.room.RoomDatabase
--keep class com.example.data.** { *; }
+-keep class com.aliva.reminder.data.** { *; }
 -dontwarn androidx.room.paging.**
 
 # Keep Moshi models, adapters, and reflections
