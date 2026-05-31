@@ -11,6 +11,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.data.Installment
+import com.example.data.Cheque
 
 class NotificationReceiver : BroadcastReceiver() {
 
@@ -202,6 +204,125 @@ class NotificationReceiver : BroadcastReceiver() {
                 .setAutoCancel(true)
 
             notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
+        }
+
+        fun scheduleInstallmentAlarms(context: Context, inst: Installment) {
+            cancelInstallmentAlarms(context, inst) // clear existing first
+            if (inst.isCompleted) return
+
+            val dayMillis = 24L * 60 * 60 * 1000
+            val baseCode = 2000000 + inst.id * 10
+
+            scheduleNotificationAlarmDetailed(context, baseCode + 0, "سررسید قسط: ${inst.title}", "۷ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 7 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 1, "سررسید قسط: ${inst.title}", "۳ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 3 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 2, "سررسید قسط: ${inst.title}", "فردا سررسید قسط ${inst.title} است!", inst.dueDate - 1 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 3, "سررسید قسط: ${inst.title}", "امروز موعد پرداخت قسط ${inst.title} فرا رسیده است.", inst.dueDate)
+        }
+
+        fun cancelInstallmentAlarms(context: Context, inst: Installment) {
+            val baseCode = 2000000 + inst.id * 10
+            for (i in 0..3) {
+                cancelNotificationAlarm(context, baseCode + i)
+            }
+        }
+
+        fun scheduleChequeAlarms(context: Context, ch: Cheque) {
+            cancelChequeAlarms(context, ch) // clear existing first
+            if (ch.isCleared) return
+
+            val dayMillis = 24L * 60 * 60 * 1000
+            val baseCode = 5000000 + ch.id * 10
+            val typeDesc = if (ch.isMyCheque) "پرداختی شما" else "دریافتی شما"
+
+            scheduleNotificationAlarmDetailed(context, baseCode + 0, "سررسید چک شماره ${ch.chequeNumber}", "۷ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 7 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 1, "سررسید چک شماره ${ch.chequeNumber}", "۳ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 3 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 2, "سررسید چک شماره ${ch.chequeNumber}", "فردا موعد پاس کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
+            scheduleNotificationAlarmDetailed(context, baseCode + 3, "سررسید چک شماره ${ch.chequeNumber}", "امروز موعد سررسید نهایی چک فرا رسیده است.", ch.dueDate)
+        }
+
+        fun cancelChequeAlarms(context: Context, ch: Cheque) {
+            val baseCode = 5000000 + ch.id * 10
+            for (i in 0..3) {
+                cancelNotificationAlarm(context, baseCode + i)
+            }
+        }
+
+        fun cancelNotificationAlarm(context: Context, requestCode: Int) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NotificationReceiver::class.java)
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode,
+                    intent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (pendingIntent != null) {
+                    alarmManager.cancel(pendingIntent)
+                    pendingIntent.cancel()
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationReceiver", "Failed to cancel alarm with code $requestCode", e)
+            }
+        }
+
+        fun scheduleNotificationAlarmDetailed(context: Context, requestCode: Int, title: String, message: String, triggerAtMillis: Long) {
+            if (triggerAtMillis < System.currentTimeMillis()) return
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val intent = Intent(context, NotificationReceiver::class.java).apply {
+                    putExtra("title", title)
+                    putExtra("message", message)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    alarmManager.canScheduleExactAlarms()
+                } else {
+                    true
+                }
+                if (canScheduleExact) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                } else {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                }
+            } catch (e: SecurityException) {
+                Log.e("NotificationReceiver", "SecurityException scheduling exact alarm", e)
+                try {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    val intent = Intent(context, NotificationReceiver::class.java).apply {
+                        putExtra("title", title)
+                        putExtra("message", message)
+                    }
+                    val pendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        requestCode,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    } else {
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
+                } catch (ex: Exception) {
+                    Log.e("NotificationReceiver", "Failed secondary alarm schedule fallback", ex)
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationReceiver", "Failed to schedule alarm", e)
+            }
         }
     }
 }

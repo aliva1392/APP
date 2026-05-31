@@ -142,4 +142,89 @@ class ExampleRobolectricTest {
       assertTrue(textReport.contains("قسط پشتیبان") || textReport.contains("سامان"))
     }
   }
+
+  @Test
+  fun testDatabaseMigrations() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    
+    // 1. Create a version 1 database structure
+    val factory = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory()
+    val configuration = androidx.sqlite.db.SupportSQLiteDatabase.Configuration.builder(context)
+        .name("test_migration.db")
+        .callback(object : androidx.sqlite.db.SupportSQLiteDatabase.Callback(1) {
+            override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("""
+                  CREATE TABLE IF NOT EXISTS `installments` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `title` TEXT NOT NULL, 
+                    `amount` INTEGER NOT NULL, 
+                    `dueDate` INTEGER NOT NULL, 
+                    `totalInstallments` INTEGER NOT NULL, 
+                    `paidInstallments` INTEGER NOT NULL, 
+                    `category` TEXT NOT NULL, 
+                    `notes` TEXT NOT NULL DEFAULT '', 
+                    `isCompleted` INTEGER NOT NULL DEFAULT 0
+                  )
+                """)
+                db.execSQL("""
+                  CREATE TABLE IF NOT EXISTS `cheques` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `chequeNumber` TEXT NOT NULL, 
+                    `bankName` TEXT NOT NULL, 
+                    `amount` INTEGER NOT NULL, 
+                    `dueDate` INTEGER NOT NULL, 
+                    `payeeName` TEXT NOT NULL, 
+                    `isMyCheque` INTEGER NOT NULL, 
+                    `isCleared` INTEGER NOT NULL DEFAULT 0, 
+                    `notes` TEXT NOT NULL DEFAULT ''
+                  )
+                """)
+            }
+            override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+        })
+        .build()
+        
+    val openHelper = factory.create(configuration)
+    val db = openHelper.writableDatabase
+    
+    // Insert some initial mock data into v1 DB
+    db.execSQL("INSERT INTO installments (title, amount, dueDate, totalInstallments, paidInstallments, category) VALUES ('قسط خرید گوشی', 5000000, 1717142400000, 10, 2, 'خرید')")
+    db.execSQL("INSERT INTO cheques (chequeNumber, bankName, amount, dueDate, payeeName, isMyCheque) VALUES ('102435', 'صادرات', 120000000, 1717228800000, 'شرکت نفت', 1)")
+    
+    // 2. Perform Migration 1 to 2
+    com.example.data.ReminderDatabase.MIGRATION_1_2.migrate(db)
+    
+    val cursorInst1 = db.query("SELECT * FROM installments", null)
+    assertTrue(cursorInst1.moveToFirst())
+    assertEquals("قسط خرید گوشی", cursorInst1.getString(cursorInst1.getColumnIndex("title")))
+    cursorInst1.close()
+    
+    // 3. Perform Migration 2 to 3
+    com.example.data.ReminderDatabase.MIGRATION_2_3.migrate(db)
+    
+    // Verify columns added in v3 (imageUri in installments, isBounced & imageUri in cheques)
+    val cursorInst2 = db.query("SELECT * FROM installments", null)
+    assertTrue(cursorInst2.moveToFirst())
+    val colIndexImage = cursorInst2.getColumnIndex("imageUri")
+    assertTrue(colIndexImage >= 0)
+    cursorInst2.close()
+    
+    val cursorCh2 = db.query("SELECT * FROM cheques", null)
+    assertTrue(cursorCh2.moveToFirst())
+    val colIndexBounced = cursorCh2.getColumnIndex("isBounced")
+    assertTrue(colIndexBounced >= 0)
+    assertEquals(0, cursorCh2.getInt(colIndexBounced)) // default state should be false/0
+    cursorCh2.close()
+    
+    // 4. Perform Migration 3 to 4
+    com.example.data.ReminderDatabase.MIGRATION_3_4.migrate(db)
+    
+    // Verify queries on updated schema items work cleanly, proving no database crashes or index duplicate errors occur
+    val cursorInst3 = db.query("SELECT * FROM installments ORDER BY amount DESC", null)
+    assertTrue(cursorInst3.moveToFirst())
+    cursorInst3.close()
+    
+    openHelper.close()
+    context.deleteDatabase("test_migration.db")
+  }
 }

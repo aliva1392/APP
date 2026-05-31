@@ -200,15 +200,6 @@ class ReminderViewModel(
             "سیستم یادآور اقساط و چک فعال است و در موعد مقرر به شما هشدار خواهد داد."
         )
     }
-
-    private fun triggerNotification(title: String, message: String) {
-        try {
-            NotificationReceiver.showNotification(getApplication(), title, message)
-        } catch (e: Exception) {
-            Log.e("ReminderViewModel", "Failed to trigger notification", e)
-        }
-    }
-
     // Installments actions
     fun addInstallment(
         title: String,
@@ -231,14 +222,9 @@ class ReminderViewModel(
                 isCompleted = false,
                 imageUri = imageUri
             )
-            repository.insertInstallment(inst)
-            
-            // Multi-level alarming scheduled notifications: 7 days, 3 days, 1 day, and on due date
-            val dayMillis = 24L * 60 * 60 * 1000
-            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "۷ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 7 * dayMillis)
-            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "۳ روز تا سررسید قسط ${inst.title} باقی مانده.", inst.dueDate - 3 * dayMillis)
-            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "فردا سررسید قسط ${inst.title} است!", inst.dueDate - 1 * dayMillis)
-            scheduleNotificationAlarm("سررسید قسط: ${inst.title}", "امروز موعد پرداخت قسط ${inst.title} فرا رسیده است.", inst.dueDate)
+            val insertedId = repository.insertInstallment(inst)
+            val savedInst = inst.copy(id = insertedId.toInt())
+            NotificationReceiver.scheduleInstallmentAlarms(getApplication(), savedInst)
         }
     }
 
@@ -259,12 +245,19 @@ class ReminderViewModel(
                 dueDate = if (completed) installment.dueDate else cal.timeInMillis
             )
             repository.insertInstallment(updated)
+            
+            if (completed) {
+                NotificationReceiver.cancelInstallmentAlarms(getApplication(), updated)
+            } else {
+                NotificationReceiver.scheduleInstallmentAlarms(getApplication(), updated)
+            }
         }
     }
 
     fun deleteInstallment(installment: Installment) {
         viewModelScope.launch {
             repository.deleteInstallment(installment)
+            NotificationReceiver.cancelInstallmentAlarms(getApplication(), installment)
         }
     }
 
@@ -292,15 +285,9 @@ class ReminderViewModel(
                 isBounced = false,
                 imageUri = imageUri
             )
-            repository.insertCheque(ch)
-
-            // Multi-level alarming scheduled notifications: 7 days, 3 days, 1 day, and on due date
-            val dayMillis = 24L * 60 * 60 * 1000
-            val typeDesc = if (isMyCheque) "پرداختی شما" else "وارده دریافتی شما"
-            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۷ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 7 * dayMillis)
-            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "۳ روز تا سررسید چک مربوط به $typeDesc", ch.dueDate - 3 * dayMillis)
-            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "فردا موعد पास کردن چک سررسید است.", ch.dueDate - 1 * dayMillis)
-            scheduleNotificationAlarm("سررسید چک شماره ${ch.chequeNumber}", "امروز موعد سررسید نهایی چک فرا رسیده است.", ch.dueDate)
+            val insertedId = repository.insertCheque(ch)
+            val savedCheque = ch.copy(id = insertedId.toInt())
+            NotificationReceiver.scheduleChequeAlarms(getApplication(), savedCheque)
         }
     }
 
@@ -308,6 +295,11 @@ class ReminderViewModel(
         viewModelScope.launch {
             val updated = cheque.copy(isCleared = !cheque.isCleared)
             repository.insertCheque(updated)
+            if (updated.isCleared) {
+                NotificationReceiver.cancelChequeAlarms(getApplication(), updated)
+            } else {
+                NotificationReceiver.scheduleChequeAlarms(getApplication(), updated)
+            }
         }
     }
 
@@ -321,6 +313,7 @@ class ReminderViewModel(
     fun deleteCheque(cheque: Cheque) {
         viewModelScope.launch {
             repository.deleteCheque(cheque)
+            NotificationReceiver.cancelChequeAlarms(getApplication(), cheque)
         }
     }
 
