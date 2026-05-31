@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.aliva.reminder"
   compileSdk = 35
 
   defaultConfig {
@@ -23,10 +23,19 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val sPassword = System.getenv("STORE_PASSWORD")
+      val kPassword = System.getenv("KEY_PASSWORD")
+      
+      if (sPassword == null || kPassword == null) {
+          // We don't fail immediately because gradle configures all variants initially.
+          // But we print a warning, and if release is actually assembled, it will fail naturally or we can throw.
+          println("WARNING: STORE_PASSWORD or KEY_PASSWORD is not set. Release builds will fail.")
+      }
+      
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
+      storePassword = sPassword ?: "dummy"
       keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      keyPassword = kPassword ?: "dummy"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
