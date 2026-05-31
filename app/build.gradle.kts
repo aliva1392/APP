@@ -23,28 +23,35 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val sPassword = System.getenv("STORE_PASSWORD")
-      val kPassword = System.getenv("KEY_PASSWORD")
-      
-      val keystoreFile = file(keystorePath)
-      
-      // We only throw if we are actually building a release variant to not break debug builds
+      val sFile = System.getenv("SIGNING_STORE_FILE")
+      val sPassword = System.getenv("SIGNING_STORE_PASSWORD")
+      val kAlias = System.getenv("SIGNING_KEY_ALIAS")
+      val kPassword = System.getenv("SIGNING_KEY_PASSWORD")
+
       gradle.taskGraph.whenReady {
         if (hasTask(":app:assembleRelease") || hasTask(":app:bundleRelease")) {
-            if (!keystoreFile.exists()) {
-                throw GradleException("Release keystore not found at $keystorePath. Release builds require a valid keystore.")
+            if (sFile == null || sPassword == null || kAlias == null || kPassword == null) {
+                throw GradleException("Release builds require SIGNING_STORE_FILE, SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS, and SIGNING_KEY_PASSWORD environment variables.")
             }
-            if (sPassword == null || kPassword == null) {
-                throw GradleException("STORE_PASSWORD or KEY_PASSWORD is not set. Release builds require these environment variables.")
+            val keystoreFile = file(sFile)
+            if (!keystoreFile.exists()) {
+                throw GradleException("Release keystore not found at $sFile. Release builds require a valid keystore.")
             }
         }
       }
-      
-      storeFile = keystoreFile
-      storePassword = sPassword ?: "dummy"
-      keyAlias = "upload"
-      keyPassword = kPassword ?: "dummy"
+
+      if (sFile != null && sPassword != null && kAlias != null && kPassword != null) {
+          storeFile = file(sFile)
+          storePassword = sPassword
+          keyAlias = kAlias
+          keyPassword = kPassword
+      } else {
+          // Provide dummy values during configuration phase (to prevent crash before taskGraph is ready)
+          storeFile = file("dummy")
+          storePassword = "dummy"
+          keyAlias = "dummy"
+          keyPassword = "dummy"
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")

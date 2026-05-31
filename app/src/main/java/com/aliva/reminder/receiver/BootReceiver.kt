@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            val pendingResult = goAsync()
             val db = ReminderDatabase.getDatabase(context)
             val repo = ReminderRepository(db.installmentDao, db.chequeDao)
             
@@ -71,6 +72,8 @@ class BootReceiver : BroadcastReceiver() {
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }
