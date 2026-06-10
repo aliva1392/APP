@@ -39,20 +39,53 @@
 ```
 (یا به جای `./gradlew` از `gradle` در محیط‌های کانتینری استفاده کنید.)
 
-### 🔸 بیلد نسخه انتشار (Release) با امنیت بالا
-در نسخه جدید، بیلد Release کاملاً ایمن است. شما **نمی‌توانید** بدون متغیرهای معتبرِ کلیدِ امضا نسخه‌ی انتشار بسازید. در صورت عدم تنظیم متغیرها، پروسه‌ی بیلد با پیام خطای مشخص متوقف می‌شود.
+### 🔸 بیلد نسخه انتشار (Release) و Android App Bundle (AAB)
+در این نسخه، بیلد Release با بالاترین استاندارد امنیتی انجام می‌شود. شما نمی‌توانید برنامه را با کلیدهای پیش‌فرض یا دیباگ امضا کنید. در صورت عدم تنظیم متغیرهای محیطی یا عدم اتصال Keystore معتبر، پروسه‌ی بیلد با خطای امنیتی متوقف می‌شود.
 
-شما باید متغیرهای زیر را در سیستم عامل یا CI/CD خود تعریف کنید:
+متغیرهای محیطی که باید ست کنید:
+- `KEYSTORE_PATH` (آدرس دقیق فایل `.jks` یا `.keystore` در سیستم شما)
+- `STORE_PASSWORD` (رمز عبور فایل Keystore که هنگام ساخت آن دادید)
+- `KEY_ALIAS` (نام یا همان Alias اختصاص داده شده به کلید)
+- `KEY_PASSWORD` (رمز کلید - که در بیشتر اوقات با رمز Keystore یکسان است)
 
-- `SIGNING_STORE_FILE` (آدرس دقیق فایل `.jks` یا `.keystore`)
-- `SIGNING_STORE_PASSWORD`
-- `SIGNING_KEY_ALIAS`
-- `SIGNING_KEY_PASSWORD`
+#### چگونه Keystore بسازیم؟
+برای استفاده از یک امضای معتبر، ابتدا باید آن را از طریق Android Studio یا مستقیماً از طریق ابزار `keytool` خط فرمان بسازید:
+```bash
+keytool -genkey -v -keystore my-upload-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias
+```
 
-پس از تنظیم متغیرها، می‌توانید خروجی `APK` یا `AAB` بگیرید:
+#### نحوه تنظیم متغیرهای محیطی قبل از بیلد:
+
+**در ترمینال‌های لینوکس و مک (Bash / Zsh):**
+```bash
+export KEYSTORE_PATH="/path/to/my-upload-key.jks"
+export STORE_PASSWORD="my-store-password"
+export KEY_ALIAS="my-key-alias"
+export KEY_PASSWORD="my-key-password"
+```
+
+**در ترمینال ویندوز - پاورشل (Windows PowerShell):**
+```powershell
+$env:KEYSTORE_PATH="C:\path\to\my-upload-key.jks"
+$env:STORE_PASSWORD="my-store-password"
+$env:KEY_ALIAS="my-key-alias"
+$env:KEY_PASSWORD="my-key-password"
+```
+
+پس از تنظیم متغیرها، خروجی گرفتن بدون خطا انجام خواهد شد.
+
+**خروجی متداول (APK) برای نصب مستقیم:**
 ```bash
 ./gradlew assembleRelease
+# APK نهایی در مسیر زیر ایجاد می‌شود:
+# app/build/outputs/apk/release/
+```
+
+**خروجی مدرن (AAB) برای بازار مایکت، بازار و گوگل پلی:**
+```bash
 ./gradlew bundleRelease
+# AAB نهایی در مسیر زیر ایجاد می‌شود:
+# app/build/outputs/bundle/release/
 ```
 
 ---
